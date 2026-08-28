@@ -1,0 +1,33 @@
+name: deb-sdk
+base: ubuntu@24.04
+version: "0.1"
+summary: Qualcomm linux-qcom Debian Packaging SDK — NOT YET IMPLEMENTED
+description: |
+  PLACEHOLDER — Milestone 2 not yet implemented.
+
+  This SDK will produce Ubuntu kernel Debian packages from the linux-qcom
+  Noble source tree using the full debian/rules packaging machinery.
+
+  Public commands (future):
+    kernel-build-debs  — build Ubuntu linux-qcom .deb packages
+
+  See QUALCOMM_WORKSHOP_DESIGN.md for the design.
+
+license: Apache-2.0
+
+platforms:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
+
+plugs:
+  cache:
+    interface: mount
+    workshop-target: /project/cache
+
+  src-deb:
+    interface: mount
+    workshop-target: /project/src/deb
+
+  out-deb:
+    interface: mount
+    workshop-target: /project/out/deb

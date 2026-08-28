@@ -1,0 +1,41 @@
+# Qualcomm Silicon Workshop — Project Configuration
+# Schema version 1
+#
+# This file describes WHAT to build.
+# SDK scripts in sdk/ describe HOW to build it.
+#
+# Default configuration: Qualcomm Dragonwing IQ-9075 EVK, Ubuntu 24.04 Noble
+#
+# To use a different revision, change kernel.ref.value to a tag, branch, or
+# commit SHA. Future BSP specialization by an agent modifies this file only.
+
+schema_version: 1
+
+silicon:
+  vendor: qualcomm
+  soc: qcs9075             # QCS9075 — SA8775P-family industrial SoC
+  board: iq-9075-evk       # Qualcomm Dragonwing IQ-9075 Evaluation Kit
+
+ubuntu:
+  release: noble           # Ubuntu 24.04 LTS (Noble Numbat)
+
+kernel:
+  # Authoritative Ubuntu 24.04 linux-qcom source for this platform.
+  repository: https://git.launchpad.net/~canonical-kernel/ubuntu/+source/linux-qcom/+git/noble
+
+  # Known-good reference revision for the Ubuntu 24.04 IQ-9075 image
+  # (2026-07-10 image, linux-qcom 6.8.0-1080.85).
+  # Change type to branch/commit for development builds.
+  ref:
+    type: tag
+    value: Ubuntu-qcom-6.8.0-1080.85
+
+  # DTBs to build and export. Only listed DTBs are staged to out/kernel/dtbs/.
+  # The Kernel SDK builds ALL dtbs, then copies only those listed here.
+  device_trees:
+    - qcs9075-iq-9075-evk.dtb
+
+toolchain:
+  # Cross-compiler prefix for arm64 cross-builds from an amd64 host.
+  # Set to "" (empty string) when building natively on an arm64 host.
+  cross_compile: aarch64-linux-gnu-

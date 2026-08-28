@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+# Kernel SDK — setup-base hook
+# Installs the Ubuntu 24.04 Noble kernel build dependencies for the
+# Qualcomm IQ-9075 linux-qcom aarch64 cross-compilation environment.
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+echo "Kernel SDK: installing build dependencies..."
+
+apt-get update
+
+# Core kernel build tools
+apt-get install -y \
+    bc \
+    bison \
+    cpio \
+    curl \
+    debhelper \
+    dwarves \
+    flex \
+    fakeroot \
+    gawk \
+    git \
+    kmod \
+    libelf-dev \
+    libssl-dev \
+    make \
+    openssl \
+    python3 \
+    python3-yaml \
+    rsync \
+    zstd
+
+# AArch64 cross-compilation toolchain
+apt-get install -y \
+    binutils-aarch64-linux-gnu \
+    gcc-13-aarch64-linux-gnu
+
+# Device-tree compiler (for dtc validation)
+apt-get install -y \
+    device-tree-compiler
+
+# Rust support (required by linux-qcom build-depends for Rust kernel modules)
+apt-get install -y \
+    rustc \
+    rust-src \
+    rustfmt \
+    clang-18 \
+    libstdc++-dev \
+    || echo "WARNING: Some Rust/LLVM packages unavailable; Rust kernel module support may fail."
+
+# bindgen for Rust FFI bindings
+apt-get install -y bindgen-0.65 \
+    || apt-get install -y bindgen \
+    || echo "WARNING: bindgen not available; Rust kernel module support may fail."
+
+# Python bindings for annotations script
+apt-get install -y python3-dev python3-setuptools
+
+echo "Kernel SDK: build dependencies installed."

@@ -1,0 +1,55 @@
+name: kernel-sdk
+base: ubuntu@24.04
+version: "0.1"
+summary: Qualcomm IQ-9075 Kernel SDK for Ubuntu 24.04
+description: |
+  Cross-compilation environment for building the Ubuntu 24.04 Noble linux-qcom
+  kernel targeting the Qualcomm Dragonwing IQ-9075 EVK (QCS9075 / SA8775P).
+
+  Installs gcc-13 aarch64 cross-toolchain, kernel build dependencies, and the
+  Ubuntu annotations machinery. Exposes kernel-build and kernel-clean commands.
+
+  Public commands:
+    kernel-build   — complete kernel build workflow
+    kernel-clean   — remove transient build/output state
+
+license: Apache-2.0
+
+platforms:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
+
+parts:
+  sdk-scripts:
+    plugin: dump
+    source: bin/
+    source-type: local
+    organize:
+      "*": bin/
+    permissions:
+      - path: bin/
+        mode: "0755"
+
+plugs:
+  cache:
+    interface: mount
+    workshop-target: /project/cache
+
+  src-kernel:
+    interface: mount
+    workshop-target: /project/src/kernel
+
+  src-deb:
+    interface: mount
+    workshop-target: /project/src/deb
+
+  out-kernel:
+    interface: mount
+    workshop-target: /project/out/kernel
+
+  out-deb:
+    interface: mount
+    workshop-target: /project/out/deb
+
+  ssh-agent:
+    interface: ssh-agent

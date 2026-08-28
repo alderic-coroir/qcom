@@ -1,0 +1,34 @@
+name: snap-sdk
+base: ubuntu@24.04
+version: "0.1"
+summary: Qualcomm kernel Snap Packaging SDK — NOT YET IMPLEMENTED
+description: |
+  PLACEHOLDER — Milestone 3 not yet implemented.
+
+  This SDK will produce an Ubuntu Core kernel snap from the Debian packages
+  produced by the Debian Packaging SDK, using Snapcraft's Kernel plugin
+  (plugin: kernel) with kernel-ubuntu-binary-package: true.
+
+  Public commands (future):
+    kernel-build-snap  — build Ubuntu Core kernel snap
+
+  See QUALCOMM_WORKSHOP_DESIGN.md for the design.
+
+  NOTE: This SDK depends on the Debian SDK completing successfully first.
+  See OQ-3 in the design document for the local APT archive integration
+  design that requires an integration test before implementation.
+
+license: Apache-2.0
+
+platforms:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
+
+plugs:
+  out-deb:
+    interface: mount
+    workshop-target: /project/out/deb
+
+  out-snap:
+    interface: mount
+    workshop-target: /project/out/snap

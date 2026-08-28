@@ -1,0 +1,258 @@
+#!/usr/bin/bash
+# kernel-build — Qualcomm Silicon Workshop Kernel SDK
+#
+# Performs the complete kernel build workflow for the IQ-9075 EVK:
+#
+#   configuration validation
+#       ↓ prepare shared Git cache (bare clone)
+#       ↓ prepare/update Kernel SDK worktree
+#       ↓ checkout configured revision
+#       ↓ generate Ubuntu qcom .config (annotations → VERSION_SIGNATURE → olddefconfig)
+#       ↓ build Image.gz
+#       ↓ build DTBs
+#       ↓ build modules
+#       ↓ modules_install into staging
+#       ↓ normalize artifacts → out/kernel/
+#       ↓ generate build-info.yaml
+#       ↓ validate all outputs
+#       ↓ success
+#
+# Usage:
+#   kernel-build [--config path/to/workshop.yaml]
+#
+# Environment overrides:
+#   WORKSHOP_ROOT       Override workshop root directory detection
+#   WORKSHOP_JOBS       Override parallel job count (default: nproc)
+#   WORKSHOP_SKIP_SHA_CHECK=1  Skip commit SHA verification (not recommended)
+#
+# Known-good reference:
+#   Tag:    Ubuntu-qcom-6.8.0-1080.85
+#   Commit: 36646c64159f94636a17f59b949863ba3702ebab
+#
+# This script implements the design from:
+#   QUALCOMM_WORKSHOP_DESIGN.md (Kernel SDK section)
+# and follows the architecture contract in:
+#   SILICON_WORKSHOP_CONTRACT.md
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Locate library scripts
+# ---------------------------------------------------------------------------
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/../lib"
+
+for lib in common fetch configure build stage validate; do
+    source "${LIB_DIR}/${lib}.sh"
+done
+
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
+
+CONFIG_PATH=""
+while [[ $# -gt 0 ]]; do
+    case "${1}" in
+        --config)
+            CONFIG_PATH="${2}"; shift 2 ;;
+        --config=*)
+            CONFIG_PATH="${1#--config=}"; shift ;;
+        --help|-h)
+            cat <<'HELP'
+kernel-build — Qualcomm Silicon Workshop Kernel SDK
+
+Builds the Ubuntu 24.04 linux-qcom kernel for the IQ-9075 EVK.
+
+Usage:
+  kernel-build [--config path/to/workshop.yaml]
+
+Options:
+  --config PATH   Path to workshop.yaml (default: auto-detect)
+  --help          Show this help
+
+Output:
+  out/kernel/image/Image.gz          — compressed kernel image
+  out/kernel/image/vmlinuz           — symlink to Image.gz
+  out/kernel/dtbs/                   — configured DTBs
+  out/kernel/modules/<kernelrelease> — kernel modules
+  out/kernel/metadata/               — config, System.map, build-info.yaml
+
+Environment:
+  WORKSHOP_ROOT       Override workshop root directory
+  WORKSHOP_JOBS       Parallel build jobs (default: nproc)
+  WORKSHOP_SKIP_SHA_CHECK=1  Skip commit SHA verification
+HELP
+            exit 0 ;;
+        *)
+            echo "Unknown option: ${1}" >&2
+            echo "Run: kernel-build --help" >&2
+            exit 1 ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Workshop root and configuration
+# ---------------------------------------------------------------------------
+
+WORKSHOP_ROOT="$(workshop_find_root)"
+workshop_log "Workshop root: ${WORKSHOP_ROOT}"
+
+if [[ -n "${CONFIG_PATH}" ]]; then
+    [[ -f "${CONFIG_PATH}" ]] || workshop_fail "Config file not found: ${CONFIG_PATH}"
+else
+    CONFIG_PATH="${WORKSHOP_ROOT}/config/workshop.yaml"
+fi
+
+workshop_log "Config: ${CONFIG_PATH}"
+workshop_read_config "${WORKSHOP_ROOT}"
+workshop_validate_config
+
+# ---------------------------------------------------------------------------
+# Toolchain setup
+# ---------------------------------------------------------------------------
+
+workshop_detect_toolchain
+workshop_check_tools
+
+# ---------------------------------------------------------------------------
+# Version derivation
+# ---------------------------------------------------------------------------
+
+# Derive version info from the tag (for tag refs)
+KERNELRELEASE=""
+RELEASE=""
+REVISION=""
+ABINUM=""
+
+if [[ "${CFG_KERNEL_REF_TYPE}" == "tag" ]]; then
+    eval "$(workshop_derive_version_info "${CFG_KERNEL_REF_VALUE}")"
+    FLAVOUR=""  # will be read from debian.env after worktree checkout
+    # Compute KERNELRELEASE after flavour is known (done after worktree)
+fi
+
+workshop_log "Ref: ${CFG_KERNEL_REF_TYPE}:${CFG_KERNEL_REF_VALUE}"
+
+# ---------------------------------------------------------------------------
+# Known-good SHA for the default IQ-9075 tag
+# ---------------------------------------------------------------------------
+
+# This is the commit SHA verified to correspond to the Ubuntu 24.04
+# linux-qcom 6.8.0-1080.85 image for the IQ-9075 EVK.
+# It is the ground truth from QUALCOMM_WORKSHOP_DESIGN.md.
+KNOWN_GOOD_SHA="36646c64159f94636a17f59b949863ba3702ebab"
+
+# Only enforce SHA check for the default known-good tag
+if [[ "${CFG_KERNEL_REF_VALUE}" != "Ubuntu-qcom-6.8.0-1080.85" ]]; then
+    KNOWN_GOOD_SHA=""
+fi
+if [[ "${WORKSHOP_SKIP_SHA_CHECK:-}" == "1" ]]; then
+    KNOWN_GOOD_SHA=""
+    workshop_warn "SHA verification skipped (WORKSHOP_SKIP_SHA_CHECK=1)"
+fi
+
+# ---------------------------------------------------------------------------
+# Source acquisition
+# ---------------------------------------------------------------------------
+
+RESOLVED_SHA="$(kernel_fetch_source \
+    "${WORKSHOP_ROOT}" \
+    "${CFG_KERNEL_REPOSITORY}" \
+    "${CFG_KERNEL_REF_TYPE}" \
+    "${CFG_KERNEL_REF_VALUE}" \
+    "${KNOWN_GOOD_SHA}"
+)"
+
+workshop_log "Using commit: ${RESOLVED_SHA}"
+
+# ---------------------------------------------------------------------------
+# Derive flavour from checked-out source
+# ---------------------------------------------------------------------------
+
+FLAVOUR="$(workshop_derive_flavour "${WORKSHOP_ROOT}/src/kernel/linux-qcom")"
+workshop_log "Flavour: ${FLAVOUR}"
+
+# Now derive KERNELRELEASE with the confirmed flavour
+if [[ "${CFG_KERNEL_REF_TYPE}" == "tag" ]]; then
+    KERNELRELEASE="$(workshop_derive_kernelrelease \
+        "${CFG_KERNEL_REF_TYPE}" \
+        "${CFG_KERNEL_REF_VALUE}" \
+        "${FLAVOUR}"
+    )"
+else
+    # For branch/commit: read from Makefile
+    UPSTREAM_VER="$(make -C "${WORKSHOP_ROOT}/src/kernel/linux-qcom" kernelversion 2>/dev/null | head -1)"
+    KERNELRELEASE="${UPSTREAM_VER}-${FLAVOUR}"
+    workshop_warn "Non-tag ref: KERNELRELEASE set to ${KERNELRELEASE} (approximate)"
+fi
+
+workshop_log "KERNELRELEASE: ${KERNELRELEASE}"
+
+# Re-derive version components if not done yet
+if [[ "${CFG_KERNEL_REF_TYPE}" == "tag" && -z "${RELEASE:-}" ]]; then
+    eval "$(workshop_derive_version_info "${CFG_KERNEL_REF_VALUE}")"
+fi
+
+JOBS="$(workshop_jobs)"
+workshop_log "Build jobs: ${JOBS}"
+
+# ---------------------------------------------------------------------------
+# Configure
+# ---------------------------------------------------------------------------
+
+kernel_configure \
+    "${WORKSHOP_ROOT}" \
+    "${FLAVOUR}" \
+    "${KERNELRELEASE}" \
+    "${RELEASE}" \
+    "${REVISION}" \
+    "${JOBS}"
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+
+kernel_build \
+    "${WORKSHOP_ROOT}" \
+    "${FLAVOUR}" \
+    "${KERNELRELEASE}" \
+    "${JOBS}"
+
+# ---------------------------------------------------------------------------
+# Stage
+# ---------------------------------------------------------------------------
+
+kernel_stage \
+    "${WORKSHOP_ROOT}" \
+    "${FLAVOUR}" \
+    "${KERNELRELEASE}" \
+    "${CFG_KERNEL_DTBS}" \
+    "${RESOLVED_SHA}" \
+    "${CFG_KERNEL_REF_VALUE}"
+
+# ---------------------------------------------------------------------------
+# Validate
+# ---------------------------------------------------------------------------
+
+kernel_validate \
+    "${WORKSHOP_ROOT}" \
+    "${KERNELRELEASE}" \
+    "${CFG_KERNEL_DTBS}" \
+    "${RESOLVED_SHA}" \
+    "${KNOWN_GOOD_SHA}"
+
+# ---------------------------------------------------------------------------
+# Success
+# ---------------------------------------------------------------------------
+
+workshop_log ""
+workshop_log "════════════════════════════════════════════════════════════════"
+workshop_log "kernel-build succeeded"
+workshop_log ""
+workshop_log "  Kernel:      ${KERNELRELEASE}"
+workshop_log "  Commit:      ${RESOLVED_SHA}"
+workshop_log "  Image:       out/kernel/image/Image.gz"
+workshop_log "  DTBs:        out/kernel/dtbs/"
+workshop_log "  Modules:     out/kernel/modules/${KERNELRELEASE}/"
+workshop_log "  Metadata:    out/kernel/metadata/"
+workshop_log "════════════════════════════════════════════════════════════════"

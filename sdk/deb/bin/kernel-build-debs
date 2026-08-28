@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+# kernel-build-debs — Qualcomm Silicon Workshop Debian Packaging SDK
+#
+# STATUS: NOT YET IMPLEMENTED — Milestone 2
+#
+# This command will produce Ubuntu kernel Debian packages from the linux-qcom
+# Noble source tree using the full debian/rules packaging machinery.
+#
+# Planned workflow (see QUALCOMM_WORKSHOP_DESIGN.md):
+#   fakeroot debian/rules clean
+#   fakeroot debian/rules build-<flavour>
+#   fakeroot debian/rules binary-<flavour>
+#   fakeroot debian/rules binary-arch-headers
+#   → out/deb/linux-image-*-qcom_*.deb
+#   → out/deb/linux-modules-*-qcom_*.deb
+#   → out/deb/linux-headers-*-qcom_*.deb
+#   → out/deb/linux-qcom-headers-*_*.deb
+#   → out/deb/linux-libc-dev-qcom_*.deb
+#
+# See: QUALCOMM_WORKSHOP_DESIGN.md § Debian Packaging SDK
+
+echo "kernel-build-debs: NOT YET IMPLEMENTED (Milestone 2)" >&2
+echo ""                                                         >&2
+echo "The Debian Packaging SDK has not been implemented yet."   >&2
+echo "See QUALCOMM_WORKSHOP_DESIGN.md for the planned design."  >&2
+echo ""                                                         >&2
+echo "Prerequisite: kernel-build must succeed first."           >&2
+exit 1

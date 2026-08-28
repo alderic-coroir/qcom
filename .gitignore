@@ -1,0 +1,19 @@
+# Qualcomm Silicon Workshop — gitignore
+#
+# Generated/transient content must not be committed.
+# Source code, configuration, SDK scripts, and documentation are versioned.
+
+# Shared Git object cache (populated at runtime)
+cache/
+
+# SDK working trees (checked out from cache at runtime)
+src/
+
+# Build state (populated by kernel-build / kernel-build-debs / kernel-build-snap)
+build/
+
+# Normalized output artifacts
+out/
+
+# Workshop runtime state
+.workshop.lock

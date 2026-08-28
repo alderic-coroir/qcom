@@ -1,0 +1,21 @@
+#!/usr/bin/bash
+# Kernel SDK — setup-project hook
+# Runs after the project directory is mounted.
+# Creates required runtime directories and sets up environment.
+set -euo pipefail
+
+echo "Kernel SDK: setting up project environment..."
+
+# Ensure runtime directories exist (gitignored, created at runtime)
+mkdir -p /project/cache
+mkdir -p /project/src/kernel
+mkdir -p /project/src/deb
+mkdir -p /project/build/kernel
+mkdir -p /project/out/kernel/image
+mkdir -p /project/out/kernel/dtbs
+mkdir -p /project/out/kernel/modules
+mkdir -p /project/out/kernel/metadata
+mkdir -p /project/out/deb/metadata
+mkdir -p /project/out/snap/metadata
+
+echo "Kernel SDK: project environment ready."

@@ -1,0 +1,152 @@
+#!/usr/bin/bash
+# kernel-clean — Qualcomm Silicon Workshop Kernel SDK
+#
+# Removes Kernel SDK transient build and output state.
+#
+# By default removes:
+#   build/kernel/     — all transient build state
+#   out/kernel/       — all normalized output artifacts
+#
+# Does NOT remove by default:
+#   cache/linux-qcom.git/   — shared Git object store
+#   src/kernel/linux-qcom/  — kernel worktree
+#   config/                 — project configuration
+#   src/deb/                — Debian SDK worktree (unrelated)
+#   out/deb/                — Debian SDK output (unrelated)
+#   out/snap/               — Snap SDK output (unrelated)
+#
+# With --all:
+#   Also removes src/kernel/linux-qcom/ (the worktree).
+#   Does NOT remove cache/linux-qcom.git/ (the bare clone is retained).
+#
+# To do a full reset including the bare clone:
+#   kernel-clean --all
+#   git -C cache/linux-qcom.git worktree prune
+#   rm -rf cache/linux-qcom.git  (manual step, intentionally not automated)
+#
+# Usage:
+#   kernel-clean [--all]
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Locate library
+# ---------------------------------------------------------------------------
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/../lib"
+source "${LIB_DIR}/common.sh"
+
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
+
+CLEAN_ALL=false
+
+while [[ $# -gt 0 ]]; do
+    case "${1}" in
+        --all)
+            CLEAN_ALL=true; shift ;;
+        --help|-h)
+            cat <<'HELP'
+kernel-clean — Qualcomm Silicon Workshop Kernel SDK
+
+Removes Kernel SDK build and output state.
+
+Usage:
+  kernel-clean [--all]
+
+Options:
+  --all   Also remove the kernel source worktree (src/kernel/linux-qcom/).
+          Does NOT remove the shared Git cache (cache/linux-qcom.git/).
+  --help  Show this help
+
+Default (without --all):
+  Removes: build/kernel/  out/kernel/
+  Keeps:   cache/  src/  config/  out/deb/  out/snap/
+
+With --all:
+  Removes: build/kernel/  out/kernel/  src/kernel/linux-qcom/
+  Keeps:   cache/linux-qcom.git/  config/  out/deb/  out/snap/
+HELP
+            exit 0 ;;
+        *)
+            echo "Unknown option: ${1}" >&2
+            echo "Run: kernel-clean --help" >&2
+            exit 1 ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Locate root
+# ---------------------------------------------------------------------------
+
+WORKSHOP_ROOT="$(workshop_find_root)"
+workshop_log "Workshop root: ${WORKSHOP_ROOT}"
+
+# ---------------------------------------------------------------------------
+# Clean build state
+# ---------------------------------------------------------------------------
+
+if [[ -d "${WORKSHOP_ROOT}/build/kernel" ]]; then
+    workshop_log "Removing build/kernel/ ..."
+    rm -rf "${WORKSHOP_ROOT}/build/kernel"
+    workshop_log "  build/kernel/ removed"
+else
+    workshop_log "  build/kernel/ not present (already clean)"
+fi
+
+# ---------------------------------------------------------------------------
+# Clean output
+# ---------------------------------------------------------------------------
+
+if [[ -d "${WORKSHOP_ROOT}/out/kernel" ]]; then
+    workshop_log "Removing out/kernel/ ..."
+    rm -rf "${WORKSHOP_ROOT}/out/kernel"
+    workshop_log "  out/kernel/ removed"
+else
+    workshop_log "  out/kernel/ not present (already clean)"
+fi
+
+# ---------------------------------------------------------------------------
+# Optionally clean worktree (--all)
+# ---------------------------------------------------------------------------
+
+if ${CLEAN_ALL}; then
+    local_wt="${WORKSHOP_ROOT}/src/kernel/linux-qcom"
+    local_cache="${WORKSHOP_ROOT}/cache/linux-qcom.git"
+
+    if [[ -d "${local_wt}" ]]; then
+        workshop_log "Removing kernel worktree at ${local_wt} ..."
+
+        # Remove the worktree registration from the bare clone if it exists
+        if [[ -d "${local_cache}" ]]; then
+            git -C "${local_cache}" worktree remove "${local_wt}" --force 2>/dev/null || \
+                workshop_warn "git worktree remove failed; removing directory directly."
+            git -C "${local_cache}" worktree prune 2>/dev/null || true
+        fi
+
+        rm -rf "${local_wt}"
+        workshop_log "  src/kernel/linux-qcom/ removed"
+    else
+        workshop_log "  src/kernel/linux-qcom/ not present"
+    fi
+
+    workshop_log ""
+    workshop_log "Shared Git cache retained: cache/linux-qcom.git/"
+    workshop_log "To fully reset, manually: rm -rf ${WORKSHOP_ROOT}/cache/linux-qcom.git"
+fi
+
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+
+workshop_log ""
+workshop_log "kernel-clean complete."
+if ${CLEAN_ALL}; then
+    workshop_log "  Removed: build/kernel/  out/kernel/  src/kernel/linux-qcom/"
+    workshop_log "  Retained: cache/linux-qcom.git/  config/  src/deb/"
+else
+    workshop_log "  Removed: build/kernel/  out/kernel/"
+    workshop_log "  Retained: cache/  src/  config/"
+fi

@@ -1,0 +1,47 @@
+name: qcom-kernel
+base: ubuntu@24.04
+summary: Qualcomm Silicon Workshop — IQ-9075 kernel build
+description: |
+  Reproducible build environment for the Ubuntu 24.04 linux-qcom kernel
+  targeting the Qualcomm Dragonwing IQ-9075 EVK (QCS9075 / SA8775P).
+
+  Provides:
+    kernel-build   — build Image.gz, DTBs, and modules; normalize to out/kernel/
+    kernel-clean   — remove Kernel SDK build/output state
+
+  Milestone status:
+    Kernel SDK (kernel-build / kernel-clean): IMPLEMENTED
+    Debian Packaging SDK (kernel-build-debs): NOT YET IMPLEMENTED
+    Snap Packaging SDK   (kernel-build-snap): NOT YET IMPLEMENTED
+
+sdks:
+  - name: project-kernel-sdk
+
+  - name: project-deb-sdk
+    plugs:
+      cache:
+        bind: project-kernel-sdk:cache
+      src-deb:
+        bind: project-kernel-sdk:src-deb
+
+  - name: project-snap-sdk
+    plugs:
+      out-deb:
+        bind: project-kernel-sdk:out-deb
+
+actions:
+  kernel-build: |
+    cd /project
+    bash sdk/kernel/bin/kernel-build "$@"
+
+  kernel-clean: |
+    cd /project
+    bash sdk/kernel/bin/kernel-clean "$@"
+
+  kernel-build-debs: |
+    cd /project
+    bash sdk/deb/bin/kernel-build-debs "$@"
+
+  kernel-build-snap: |
+    cd /project
+    bash sdk/snap/bin/kernel-build-snap "$@"

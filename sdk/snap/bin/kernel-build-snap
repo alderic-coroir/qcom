@@ -1,0 +1,36 @@
+#!/usr/bin/bash
+# kernel-build-snap — Qualcomm Silicon Workshop Snap Packaging SDK
+#
+# STATUS: NOT YET IMPLEMENTED — Milestone 3
+#
+# This command will produce an Ubuntu Core kernel snap from the Debian packages
+# produced by kernel-build-debs, using Snapcraft's Kernel plugin.
+#
+# Planned workflow (see QUALCOMM_WORKSHOP_DESIGN.md):
+#   apt-ftparchive packages out/deb/ > out/deb/Packages
+#   apt-ftparchive release out/deb/ > out/deb/Release
+#   GPG-sign out/deb/Release
+#   snapcraft --destructive-mode
+#   → out/snap/linux-kernel-qcom_*_arm64.snap
+#
+# Snapcraft configuration:
+#   build-base: core24
+#   type: kernel
+#   parts:
+#     kernel:
+#       plugin: kernel
+#       kernel-ubuntu-binary-package: true
+#
+# BLOCKED ON: OQ-3 (local file:// APT archive + Snapcraft Kernel plugin
+#             integration test required before implementation)
+#
+# See: QUALCOMM_WORKSHOP_DESIGN.md § Snap Packaging SDK
+
+echo "kernel-build-snap: NOT YET IMPLEMENTED (Milestone 3)" >&2
+echo ""                                                         >&2
+echo "The Snap Packaging SDK has not been implemented yet."    >&2
+echo "It depends on kernel-build-debs completing first."       >&2
+echo "See QUALCOMM_WORKSHOP_DESIGN.md for the planned design." >&2
+echo ""                                                         >&2
+echo "Blocked on: OQ-3 (local APT + Snapcraft integration test)" >&2
+exit 1
